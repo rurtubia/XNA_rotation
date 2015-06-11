@@ -11,9 +11,6 @@ using Microsoft.Xna.Framework.Media;
 
 namespace Rotación
 {
-    /// <summary>
-    /// This is the main type for your game
-    /// </summary>
     public class Game1 : Microsoft.Xna.Framework.Game
     {
         GraphicsDeviceManager graphics;
@@ -24,86 +21,104 @@ namespace Rotación
 
         Vector2 Origen;
         Vector2 Posicion;
+        Vector2 Posicion2;
 
         float rotacion;
 
-        public Game1()
-        {
+        Vector2 velocidad;
+        const float velocidadTangencial = 5f;
+        float friccion = 0.1f;
+
+        List<Rocket> rockets = new List<Rocket>();
+
+        public Game1() {
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
-
-            //graphics.IsFullScreen = true;
-            //graphics.PreferredBackBufferWidth = 1280;
-            //graphics.PreferredBackBufferWidth = 720;
-
-
         }
 
-        /// <summary>
-        /// Allows the game to perform any initialization it needs to before starting to run.
-        /// This is where it can query for any required services and load any non-graphic
-        /// related content.  Calling base.Initialize will enumerate through any components
-        /// and initialize them as well.
-        /// </summary>
-        protected override void Initialize()
-        {
-            // TODO: Add your initialization logic here
-
+        protected override void Initialize() {
             base.Initialize();
         }
 
-        /// <summary>
-        /// LoadContent will be called once per game and is the place to load
-        /// all of your content.
-        /// </summary>
-        protected override void LoadContent()
-        {
-            // Create a new SpriteBatch, which can be used to draw textures.
+        protected override void LoadContent() {
             spriteBatch = new SpriteBatch(GraphicsDevice);
-
             Textura = Content.Load<Texture2D>("nave");
             Posicion = new Vector2(250,200);
-
-            // TODO: use this.Content to load your game content here
         }
 
-        /// <summary>
-        /// UnloadContent will be called once per game and is the place to unload
-        /// all content.
-        /// </summary>
         protected override void UnloadContent()
         {
-            // TODO: Unload any non ContentManager content here
         }
 
-        /// <summary>
-        /// Allows the game to run logic such as updating the world,
-        /// checking for collisions, gathering input, and playing audio.
-        /// </summary>
-        /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Update(GameTime gameTime)
         {
-            // Allows the game to exit
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
                 this.Exit();
 
             Rectangulo = new Rectangle((int)Posicion.X, (int)Posicion.Y, 
                                         Textura.Width, Textura.Height);
+            Posicion = velocidad + Posicion;
+            
+            Posicion2 = Posicion * 2;
 
             Origen = new Vector2(Rectangulo.Width/2, Rectangulo.Height/2);
-            // TODO: Add your update logic here
 
             if (Keyboard.GetState().IsKeyDown(Keys.Right)) rotacion += 0.2f;
             if (Keyboard.GetState().IsKeyDown(Keys.Left)) rotacion -= 0.2f;
+            if (Keyboard.GetState().IsKeyDown(Keys.Up)) {
+                velocidad.X = (float)Math.Cos(rotacion)*velocidadTangencial;
+                //coseno del ángulo = velocidad tangencial
+                velocidad.Y = (float)Math.Sin(rotacion)*velocidadTangencial;
+            }
+            else if (velocidad != Vector2.Zero) {
+                float i = velocidad.X;
+                float j = velocidad.Y;
 
+                velocidad.X = i -= friccion * i;
+                velocidad.Y = j -= friccion * j;
+            }
+
+            if (Keyboard.GetState().IsKeyDown(Keys.Space))
+                Disparo();
+                UpdateRockets();
             
             base.Update(gameTime);
         }
 
-        /// <summary>
-        /// This is called when the game should draw itself.
-        /// </summary>
-        /// <param name="gameTime">Provides a snapshot of timing values.</param>
+        public void UpdateRockets() 
+        {
+            foreach (Rocket rocket in rockets)
+            {
+                rocket.posicionRocket += rocket.velocidadRocket;
+                if (Vector2.Distance(rocket.posicionRocket, Posicion) > 700)
+                {
+                    rocket.isVisible = false;
+                }
+            }
+            for (int i = 0; i < rockets.Count; i++)
+            {
+                if (!rockets[i].isVisible)
+                {
+                    rockets.RemoveAt(i);
+                    i--;
+                }
+            }
+        }
+
+        public void Disparo()
+        {
+            Rocket nuevoRocket = new Rocket(Content.Load<Texture2D>("bala"));
+            nuevoRocket.velocidadRocket =
+                new Vector2((float)Math.Cos(rotacion), (float)Math.Sin(rotacion)) * 5f + velocidad;
+            nuevoRocket.posicionRocket = Posicion + nuevoRocket.velocidadRocket;
+            nuevoRocket.isVisible = true;
+
+            if (rockets.Count < 10)
+            {
+                rockets.Add(nuevoRocket);
+            }
+        }
+
         protected override void Draw(GameTime gameTime)
         {
             GraphicsDevice.Clear(Color.CornflowerBlue);
@@ -112,9 +127,10 @@ namespace Rotación
             spriteBatch.Draw(Textura, Posicion, null, 
                                 Color.White, rotacion, Origen, 
                                 1f, SpriteEffects.None, 0);
-            spriteBatch.End();
-            
+            foreach (Rocket rocket in rockets)
+                rocket.Draw(spriteBatch);
 
+            spriteBatch.End();
             base.Draw(gameTime);
         }
     }
